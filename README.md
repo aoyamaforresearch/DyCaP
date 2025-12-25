@@ -22,7 +22,22 @@ library(splines)
 source("DyCaP.R")
 ```
 
-## Usage (Quick Start)
+## Input Data Format (Important)
+DyCaP requires a data frame (or tibble) formatted as follows:
+
+- **Rows:** Cells
+- **Columns:**
+    - **`t` (Required):** A numeric column representing pseudotime.
+        - The range does not need to be 0-1 (it is automatically normalized internally).
+    - **Other columns:** Numeric gene expression values.
+
+**⚠️ Note on Metadata:**
+By default, DyCaP treats **all columns other than `t`** as genes to be analyzed. 
+If your data frame contains non-numeric metadata (e.g., `ClusterID`, `Batch`, `SampleName`), please **remove them** before running `dycap_run()`, or specify the target genes explicitly using the `genes` argument.
+
+## Usage
+
+### 1. Quick Start (Synthetic Data)
 You can try DyCaP immediately using the provided example script.
 
 ```r
@@ -36,8 +51,27 @@ source("DyCaP.R")
 source("example_run.R")
 
 # 3. Check the results
-# The 'results' object is created by the example script
 print(head(results$pairpair_tbl))
+```
+
+### 2. Run on Your Data
+Here is a minimal example of how to run DyCaP on your own dataset.
+
+```r
+# Prepare your data
+# df should have a column named "t" and numeric gene columns
+# e.g., df <- data.frame(t = pseudotime, GeneA = ..., GeneB = ...)
+
+# Run DyCaP
+res <- dycap_run(
+  dat = df,
+  tau_grid = seq(0, 1, length.out = 50), # Resolution of time points
+  h_band   = 0.05,                       # Bandwidth for kernel smoothing
+  traj_cor_threshold = 0.99              # Threshold for trajectory similarity
+)
+
+# View detected recurrent patterns
+print(res$pairpair_tbl)
 ```
 
 ## Citation
