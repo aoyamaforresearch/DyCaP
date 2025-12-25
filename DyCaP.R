@@ -31,9 +31,20 @@ dycap_fit_traj <- function(dat,
                            genes    = NULL) {
   
   stopifnot("t" %in% colnames(dat))
-  
-  t_vec <- dat$t
-  
+    
+    # --- scaling 0-1  ---
+    t_raw <- dat$t
+    t_min <- min(t_raw, na.rm = TRUE)
+    t_max <- max(t_raw, na.rm = TRUE)
+    
+    # ゼロ除算回避（念のため）
+    if (t_max == t_min) {
+      t_vec <- rep(0.5, length(t_raw)) 
+    } else {
+      t_vec <- (t_raw - t_min) / (t_max - t_min)
+    }
+    
+    # --------------------------------------  
   if (is.null(genes)) {
     genes <- setdiff(colnames(dat), "t")
   } else {
