@@ -197,9 +197,9 @@ Use the following script to filter pairs based on the **number of extrema (peaks
 <summary><b>👇 Click here to show the filtering & visualization script</b></summary>
 
 ```r
-# ==============================================================================
-# Step 0: Setup & Libraries
-# ==============================================================================
+# -----------------------------
+# 0) Setup & Libraries
+# -----------------------------
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -211,9 +211,9 @@ library(ggplot2)
 EXTREMA_RHO_MIN <- 0.30  # Minimum |rho| to be considered a "strong" peak/valley
 N_EXT_MIN       <- 1     # Minimum number of strong extrema required (1 = at least one peak)
 
-# ==============================================================================
-# Step 1: Helper Functions
-# ==============================================================================
+# -----------------------------
+# 1) Helper Functions
+# -----------------------------
 # Function to count "strong" extrema (peaks/valleys) to identify dynamic shapes
 count_strong_extrema <- function(rho_vec, thr = 0.30) {
   rho_vec <- as.numeric(rho_vec)
@@ -260,9 +260,9 @@ plot_dycap_pair <- function(traj_tbl, pair1, pair2, title_text) {
     )
 }
 
-# ==============================================================================
-# Step 2: Metrics Calculation & Filtering
-# ==============================================================================
+# -----------------------------
+# 2) Metrics Calculation & Filtering
+# -----------------------------
 message("--- Calculating metrics for all pairs... ---")
 
 # 1. Calculate metrics (max correlation, number of extrema) for each pair
@@ -290,9 +290,9 @@ pairpair_filt <- res$pairpair_tbl %>%
 
 message(paste("Filtered pairs:", nrow(pairpair_filt)))
 
-# ==============================================================================
-# Step 3: Export Significant Patterns to PDF
-# ==============================================================================
+# -----------------------------
+# 3) Export Significant Patterns to PDF
+# -----------------------------
 if (nrow(pairpair_filt) > 0) {
   pdf_filename <- "DyCaP_Significant_Patterns.pdf"
   message(paste("Exporting plots to", pdf_filename, "..."))
