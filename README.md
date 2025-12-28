@@ -48,6 +48,7 @@ library(Seurat)
 library(dplyr)
 library(tibble)
 library(slingshot)
+library(SingleCellExperiment)
 
 # -----------------------------
 # 0) Read10X -> Seurat
@@ -74,11 +75,13 @@ seu <- ScaleData(seu, features = VariableFeatures(seu)) %>%
 # -----------------------------
 # 2) Slingshot pseudotime -> store in Seurat
 # -----------------------------
-rd <- Embeddings(seu, "pca")[, 1:20, drop = FALSE]
-cl <- seu$seurat_clusters
 
-sds <- slingshot(rd, clusterLabels = cl)
-t_raw <- slingPseudotime(sds)[, 1]
+sce <- as.SingleCellExperiment(seu)
+reducedDims(sce)$PCA <- Embeddings(seu, "pca")[, 1:20, drop = FALSE]
+colData(sce)$cluster <- factor(seu$seurat_clusters)
+
+sce <- slingshot(sce, clusterLabels = "cluster", reducedDim = "PCA")
+t_raw <- slingPseudotime(sce)[, 1]
 
 # Store pseudotime matching Seurat cell order
 seu$pseudotime_raw <- t_raw[colnames(seu)]
@@ -117,9 +120,9 @@ seu_sub <- seu[, keep_idx]
 # -----------------------------
 # 4) Build DyCaP input dat (cells x genes + t)
 # -----------------------------
-keep <- !is.na(seu_sub$pseudotime01)
+cells_keep <- colnames(seu_sub)[!is.na(seu_sub$pseudotime01[colnames(seu_sub)])]
 
-expr_mat <- GetAssayData(seu_sub, slot = "data")[, keep] %>%
+expr_mat <- GetAssayData(seu_sub, slot = "data")[, cells_keep, drop = FALSE] %>%
   t() %>%
   as.matrix()
 
@@ -128,11 +131,12 @@ genes_use <- VariableFeatures(seu_sub) %>%
   head(100)
 
 dat <- tibble::as_tibble(expr_mat[, genes_use, drop = FALSE]) %>%
-  dplyr::mutate(t = seu_sub$pseudotime01[keep])
+  dplyr::mutate(t = as.numeric(seu_sub$pseudotime01[cells_keep]))
 
 # Sanity checks
-stopifnot(nrow(dat) == sum(keep))
+stopifnot(nrow(dat) == length(cells_keep))
 stopifnot("t" %in% colnames(dat))
+stopifnot(length(genes_use) > 1)
 ```
 </details>
 
