@@ -187,6 +187,138 @@ res <- dycap_run(
 # View detected recurrent patterns
 print(res$pairpair_tbl)
 ```
+### 🔬 Advanced Recipe: Filtering "Dynamic" Patterns
+
+Sometimes, you want to find gene pairs that not only have high correlation but also show **dynamic changes** (peaks and valleys) along the pseudotime, rather than stable high correlation.
+
+Use the following script to filter pairs based on the **number of extrema (peaks/valleys)** and visualize them.
+
+<details>
+<summary><b>👇 Click here to show the filtering & visualization script</b></summary>
+
+```r
+# ==============================================================================
+# Step 0: Setup & Libraries
+# ==============================================================================
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Assuming 'res' is the output from dycap_run(dat)
+# res <- dycap_run(dat) 
+
+# --- Tuning Knobs ---
+EXTREMA_RHO_MIN <- 0.30  # Minimum |rho| to be considered a "strong" peak/valley
+N_EXT_MIN       <- 1     # Minimum number of strong extrema required (1 = at least one peak)
+
+# ==============================================================================
+# Step 1: Helper Functions
+# ==============================================================================
+# Function to count "strong" extrema (peaks/valleys) to identify dynamic shapes
+count_strong_extrema <- function(rho_vec, thr = 0.30) {
+  rho_vec <- as.numeric(rho_vec)
+  # Return NA if too short or contains NA
+  if (any(!is.finite(rho_vec)) || length(rho_vec) < 5) return(NA_integer_)
+  
+  d1 <- diff(rho_vec)
+  s1 <- sign(d1)
+  
+  # Handle zeros (flat regions) by filling with previous non-zero slope
+  for (i in seq_along(s1)) {
+    if (s1[i] == 0) {
+      prev_nz <- if (i > 1) s1[rev(seq_len(i - 1))][which(s1[rev(seq_len(i - 1))] != 0)[1]] else NA
+      next_nz <- if (i < length(s1)) s1[(i + 1):length(s1)][which(s1[(i + 1):length(s1)] != 0)[1]] else NA
+      s1[i] <- dplyr::coalesce(prev_nz, next_nz, 0)
+    }
+  }
+  
+  # Detect sign changes (potential extrema)
+  idx <- which(diff(s1) != 0) + 1
+  idx <- idx[idx > 2 & idx < (length(rho_vec) - 1)] # Exclude endpoints
+  
+  # Count only extrema that exceed the threshold
+  sum(abs(rho_vec[idx]) >= thr, na.rm = TRUE)
+}
+
+# Visualization helper
+plot_dycap_pair <- function(traj_tbl, pair1, pair2, title_text) {
+  pairs_show <- c(pair1, pair2)
+  plot_df <- traj_tbl %>%
+    dplyr::mutate(pair = paste(gene_i, gene_j, sep = "__")) %>%
+    dplyr::filter(pair %in% pairs_show)
+  
+  ggplot(plot_df, aes(x = tau, y = rho, color = pair)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey80") +
+    geom_line(linewidth = 1.2) +
+    scale_y_continuous(limits = c(-1, 1)) +
+    theme_bw(base_size = 14) +
+    labs(title = title_text, x = "Pseudotime", y = expression(rho(tau))) +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5)
+    )
+}
+
+# ==============================================================================
+# Step 2: Metrics Calculation & Filtering
+# ==============================================================================
+message("--- Calculating metrics for all pairs... ---")
+
+# 1. Calculate metrics (max correlation, number of extrema) for each pair
+pair_metrics <- res$traj_tbl %>%
+  dplyr::mutate(pair = paste(gene_i, gene_j, sep = "__")) %>%
+  dplyr::group_by(pair) %>%
+  dplyr::summarise(
+    max_abs_rho = max(abs(rho), na.rm = TRUE),
+    n_strong_extrema = count_strong_extrema(rho, thr = EXTREMA_RHO_MIN),
+    .groups = "drop"
+  )
+
+# 2. Filter pairpair_tbl to keep only "interesting" dynamic patterns
+pairpair_filt <- res$pairpair_tbl %>%
+  dplyr::filter(share_gene) %>% # Focus on shared-gene pairs (hub analysis)
+  dplyr::left_join(pair_metrics, by = c("pair1" = "pair")) %>%
+  dplyr::rename(max_abs_rho1 = max_abs_rho, n_ext1 = n_strong_extrema) %>%
+  dplyr::left_join(pair_metrics, by = c("pair2" = "pair")) %>%
+  dplyr::rename(max_abs_rho2 = max_abs_rho, n_ext2 = n_strong_extrema) %>%
+  dplyr::filter(
+    max_abs_rho1 >= EXTREMA_RHO_MIN, max_abs_rho2 >= EXTREMA_RHO_MIN,
+    n_ext1 >= N_EXT_MIN, n_ext2 >= N_EXT_MIN
+  ) %>%
+  dplyr::arrange(dplyr::desc(cor_traj))
+
+message(paste("Filtered pairs:", nrow(pairpair_filt)))
+
+# ==============================================================================
+# Step 3: Export Significant Patterns to PDF
+# ==============================================================================
+if (nrow(pairpair_filt) > 0) {
+  pdf_filename <- "DyCaP_Significant_Patterns.pdf"
+  message(paste("Exporting plots to", pdf_filename, "..."))
+  
+  pdf(file = pdf_filename, width = 6, height = 4)
+  
+  for (i in seq_len(nrow(pairpair_filt))) {
+    pp <- pairpair_filt[i, ]
+    
+    title_str <- paste0(
+      "Rank ", i, " / ", nrow(pairpair_filt), "\n",
+      pp$pair1, " vs ", pp$pair2, "\n",
+      "(cor=", round(pp$cor_traj, 3), ", n_ext=", min(pp$n_ext1, pp$n_ext2), ")"
+    )
+    
+    p <- plot_dycap_pair(res$traj_tbl, pp$pair1, pp$pair2, title_str)
+    print(p)
+  }
+  
+  dev.off()
+  message("Done! Check the PDF.")
+} else {
+  warning("No pairs passed the filter. Try relaxing EXTREMA_RHO_MIN or N_EXT_MIN.")
+}
+```
+</details>
 
 ## Citation
 If you use this tool, please cite our preprint:
