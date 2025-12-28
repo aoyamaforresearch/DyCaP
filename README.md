@@ -133,6 +133,8 @@ dat <- tibble::as_tibble(expr_mat[, genes_use, drop = FALSE]) %>%
 # Sanity checks
 stopifnot(nrow(dat) == sum(keep))
 stopifnot("t" %in% colnames(dat))
+```
+</details>
 
 ## Usage
 
