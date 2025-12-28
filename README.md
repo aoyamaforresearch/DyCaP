@@ -55,27 +55,27 @@ library(SingleCellExperiment)
 # -----------------------------
 data_dir <- "path/to/your/data" # Update this path
 counts <- Read10X(data.dir = data_dir, gene.column = 1)
-
 seu <- CreateSeuratObject(counts = counts)
 
 # -----------------------------
-# 1) Standard preprocessing (lighter ScaleData)
+# 1) Standard preprocessing (memory-friendly)
 # -----------------------------
 seu <- seu %>%
   NormalizeData() %>%
   FindVariableFeatures(nfeatures = 2000)
 
-# Run ScaleData on variable features only (to save memory)
-seu <- ScaleData(seu, features = VariableFeatures(seu)) %>%
-  RunPCA(features = VariableFeatures(seu)) %>%
+vf <- VariableFeatures(seu)
+stopifnot(length(vf) > 1)
+
+seu <- ScaleData(seu, features = vf) %>%
+  RunPCA(features = vf) %>%
   RunUMAP(dims = 1:20) %>%
   FindNeighbors(dims = 1:20) %>%
   FindClusters(resolution = 0.5)
 
 # -----------------------------
-# 2) Slingshot pseudotime -> store in Seurat
+# 2) Slingshot pseudotime -> store in Seurat (robust)
 # -----------------------------
-
 sce <- as.SingleCellExperiment(seu)
 reducedDims(sce)$PCA <- Embeddings(seu, "pca")[, 1:20, drop = FALSE]
 colData(sce)$cluster <- factor(seu$seurat_clusters)
@@ -83,7 +83,8 @@ colData(sce)$cluster <- factor(seu$seurat_clusters)
 sce <- slingshot(sce, clusterLabels = "cluster", reducedDim = "PCA")
 t_raw <- slingPseudotime(sce)[, 1]
 
-# Store pseudotime matching Seurat cell order
+# Ensure name matching between slingshot output and Seurat cells
+names(t_raw) <- colnames(sce)
 seu$pseudotime_raw <- t_raw[colnames(seu)]
 
 # 0-1 scaling (keep NAs as is)
@@ -106,7 +107,6 @@ idx_all <- which(!is.na(pt))
 bin <- cut(pt[idx_all], breaks = nbin, labels = FALSE)
 idx_by_bin <- split(idx_all, bin)
 
-# Target number of cells per bin (approximate)
 k_per_bin <- max(1, floor(n_target / nbin))
 
 keep_idx <- unlist(lapply(idx_by_bin, function(i) {
@@ -114,29 +114,38 @@ keep_idx <- unlist(lapply(idx_by_bin, function(i) {
   sample(i, size = min(length(i), k_per_bin), replace = FALSE)
 }))
 
-
 seu_sub <- seu[, keep_idx]
 
 # -----------------------------
 # 4) Build DyCaP input dat (cells x genes + t)
 # -----------------------------
-cells_keep <- colnames(seu_sub)[!is.na(seu_sub$pseudotime01[colnames(seu_sub)])]
+pt_sub <- seu_sub$pseudotime01[colnames(seu_sub)]
+cells_keep <- colnames(seu_sub)[!is.na(pt_sub)]
 
 expr_mat <- GetAssayData(seu_sub, slot = "data")[, cells_keep, drop = FALSE] %>%
   t() %>%
   as.matrix()
 
 genes_use <- VariableFeatures(seu_sub) %>%
-  intersect(colnames(expr_mat)) %>%
-  head(100)
+  intersect(colnames(expr_mat))
+
+# Fallback: if variable features are empty for some reason, use all genes
+if (length(genes_use) < 2) {
+  genes_use <- colnames(expr_mat)
+}
+
+genes_use <- head(genes_use, 100)
 
 dat <- tibble::as_tibble(expr_mat[, genes_use, drop = FALSE]) %>%
-  dplyr::mutate(t = as.numeric(seu_sub$pseudotime01[cells_keep]))
+  dplyr::mutate(t = as.numeric(pt_sub[cells_keep]))
 
 # Sanity checks
 stopifnot(nrow(dat) == length(cells_keep))
 stopifnot("t" %in% colnames(dat))
 stopifnot(length(genes_use) > 1)
+
+# dat is now ready for dycap_run(dat, ...)
+
 ```
 </details>
 
