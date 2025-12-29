@@ -166,11 +166,6 @@ source("DyCaP.R")
 # 2. Generate synthetic data
 # (This script creates a dataframe named 'dat' for demonstration)
 source("example_run.R") 
-
-# Check the input format (Users can see what the input looks like!)
-print(head(dat)) 
-
-
 ```
 
 ### 2. Run on Your Data
