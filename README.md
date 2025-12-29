@@ -156,18 +156,24 @@ stopifnot(length(genes_use) > 1)
 
 ### 1. Quick Start (Synthetic Data)
 You can try DyCaP immediately using the provided example script.
-
+Note: Please make sure your R working directory contains DyCaP.R and example_run.R. You can check it with getwd() and set it with setwd().
 ```r
 # 1. Load required libraries and DyCaP
 library(tidyverse)
 library(splines)
 source("DyCaP.R")
 
-# 2. Generate synthetic data & Run DyCaP
-# (This script generates dummy data and runs the analysis automatically)
-source("example_run.R")
+# 2. Generate synthetic data
+# (This script creates a dataframe named 'dat' for demonstration)
+source("example_run.R") 
 
-# 3. Check the results
+# Check the input format (Users can see what the input looks like!)
+print(head(dat)) 
+
+# 3. Run DyCaP (The Core Command)
+results <- dycap_run(dat)
+
+# 4. Check the results
 print(head(results$pairpair_tbl))
 ```
 
