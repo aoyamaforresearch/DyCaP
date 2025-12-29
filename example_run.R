@@ -53,4 +53,35 @@ print("--- Pair-Pair Similarity Table ---")
 
 print(results$pairpair_tbl)
 
+# 5. Plot dynamic correlation trajectories for selected pairs
+#    (GeneA-GeneC vs GeneA-GeneE)
+
+plot_pairs <- tibble(
+  gene_i = c("GeneA", "GeneA"),
+  gene_j = c("GeneC", "GeneE")
+) %>%
+  mutate(pair = paste(gene_i, gene_j, sep = "__"))
+
+plot_df <- results$traj_tbl %>%
+  mutate(pair = paste(gene_i, gene_j, sep = "__")) %>%
+  filter(pair %in% plot_pairs$pair)
+
+p <- ggplot(plot_df, aes(x = tau, y = rho, color = pair)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey80") +
+  geom_line(linewidth = 1.2) +
+  scale_y_continuous(limits = c(-1, 1)) +
+  labs(
+    title = "Dynamic correlation trajectories",
+    x = "pseudotime",
+    y = expression(rho(tau)),
+    color = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  )
+
+print(p)
+
 print("Done!")
