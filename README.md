@@ -17,7 +17,7 @@ You can use DyCaP by simply sourcing the R script provided in this repository.
 ```r
 # 📦 First time setup: Install dependencies
 if (!requireNamespace("tidyverse", quietly = TRUE)) install.packages("tidyverse")
-if (!requireNamespace("Seurat", quietly = TRUE)) install.packages("Seurat")
+
 library(tidyverse)
 library(splines)
 
