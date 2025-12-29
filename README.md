@@ -170,11 +170,7 @@ source("example_run.R")
 # Check the input format (Users can see what the input looks like!)
 print(head(dat)) 
 
-# 3. Run DyCaP (The Core Command)
-results <- dycap_run(dat)
 
-# 4. Check the results
-print(head(results$pairpair_tbl))
 ```
 
 ### 2. Run on Your Data
